@@ -1,1 +1,24 @@
-Initial commit
+Instruction
+
+The Vagrant files are using Virtualbox as provider
+
+The  configuration is for 3 servers:
+
+db01 --> Mysql Server
+pb01 --> Publify server
+ha01 --> HAProxy server
+
+The db01 need to be started first since is providing the DB for pb01
+
+ha01 can be started at any time
+
+vagrant up db01 && vagrant up pb01 && vagrant up ha01
+
+after the complete installation access the frontend from:
+
+http://localhost:3000 --> Publify served by HAProxy
+http://localhost:8080 --> HAProxy statistics page
+
+There is a puppet module for rubygem https://github.com/puppetlabs/puppetlabs-ruby , but I had a limited time to work on this and I didn't use this module, so the pupped manifest is not fancy and optimized .
+
+Next release will have the puppetlabs-ruby module instead of the exec in the manifest and be more clean.    
