@@ -1,0 +1,13 @@
+[Unit]
+Description=Publify Web Service
+After=network.target
+
+[Service]
+Type=simple
+User=publify
+ExecStart=/var/www/publify/bin/rails server -b 0.0.0.0 -d -e production
+Restart=on-abort
+
+
+[Install]
+WantedBy=multi-user.target

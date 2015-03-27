@@ -1,86 +1,164 @@
+#Vargrant specific configuration (usually in pupprt server site.pp)
 Package {
    allow_virtual => true,
 }
-#Node hosting the Mysql Server
+###############################
+#Node hosting the Mysql Server#
+###############################
 node 'db01.local' {
+
+#Override options for Mysql
     $override_options = {
       'mysqld' => {
-        'server-id' => '1',
-        'bind-address' => '0.0.0.0',
-        'innodb_buffer_pool_size'   => '500M',
-        'innodb_lock_wait_timeout'  => '5',
-        'innodb_thread_concurrency' => '0',
-        'innodb_flush_method'       => 'O_DIRECT',
-        'log-bin'                   => '/var/lib/mysql',
-        'log-bin-index'             => '/var/lib/mysql/log-bin.index',
-        'relay-log'                 => '/var/lib/mysql/relay.log',
-        'relay-log-info-file'       => '/var/lib/mysql/relay-log.info',
-        'relay-log-index'           => '/var/lib/mysql/relay-log.index',
+      'server-id'                 => '1',
+      'bind-address'              => '0.0.0.0',
+      'innodb_buffer_pool_size'   => '500M',
+      'innodb_lock_wait_timeout'  => '5',
+      'innodb_thread_concurrency' => '0',
+      'innodb_flush_method'       => 'O_DIRECT',
+      'log-bin'                   => '/var/lib/mysql',
+      'log-bin-index'             => '/var/lib/mysql/log-bin.index',
+      'relay-log'                 => '/var/lib/mysql/relay.log',
+      'relay-log-info-file'       => '/var/lib/mysql/relay-log.info',
+      'relay-log-index'           => '/var/lib/mysql/relay-log.index',
       }
     }
 
+# Install Mysql and set root password
     class { '::mysql::server':
- 	  root_password           => 'testdb',
-      	override_options => $override_options
+ 	  root_password    => 'testdb',
+      override_options => $override_options
     }
+
+#Create mysql user to access from network 
       mysql_user { 'root@%':
-        ensure                   => 'present',
-        password_hash            => '*9EC001FF562CDE467D041CEAB13160F3BBB49DD2',
+        ensure        => 'present',
+        password_hash => '*9EC001FF562CDE467D041CEAB13160F3BBB49DD2',
       }
       mysql_grant { 'root@%/*.*':
-        ensure     => 'present',
-        options    => ['GRANT'],
-        privileges => ['ALL'],
-        table      => '*.*',
-        user       => 'root@%',
-      }  
+        ensure        => 'present',
+        options       => ['GRANT'],
+        privileges    => ['ALL'],
+        table         => '*.*',
+        user          => 'root@%',
+      } 
 
-    package { 'git': ensure => installed }
-    service { "firewalld.service": ensure => "stopped", }
+#Stop firewall services
+    service { 'firewalld.service': ensure => 'stopped', }
 }
-#Node hosting the Publify Server
+#################################
+#Node hosting the Publify Server#
+#################################
 node 'pb01.local' {
-    service { "firewalld.service": ensure => "stopped", }
-    exec { "update-gem":
-    command => "/bin/gem update --system", }
-    $rubypre = [ 'git','ruby-devel','gcc','gcc-c++','make','automake','autoconf','curl-devel','openssl-devel','zlib-devel','httpd-devel','apr-devel','apr-util-devel','sqlite-devel', 'mysql-devel' ]
+#Stop firewall services
+    service { 'firewalld.service': ensure => 'stopped', }
+
+#Ruby pre requirement packages
+    $rubypre = [ 'git',
+                 'gcc',
+                 'gcc-c++',
+                 'make',
+                 'automake',
+                 'autoconf',
+                 'curl-devel',
+                 'openssl-devel',
+                 'zlib-devel',
+                 'httpd-devel',
+                 'apr-devel',
+                 'apr-util-devel',
+                 'sqlite-devel',
+                 'mysql-devel' ]
     package { [$rubypre]: 
-    ensure => installed, }
-    package { [ 'rake', 'rails', 'eventmachine', 'mysql2', 'nokogiri' ]:
-    ensure   => 'installed',
-    provider => 'gem', 
-    require  => [ Package [$rubypre], Exec ["update-gem"] ] }
-    exec { "clone-publify":
-    command => "/usr/bin/git clone https://github.com/publify/publify.git /opt/publify",
-    require  => Package ['git'] }
-    file { '/opt/publify/config/database.yml':
-    source => 'puppet:///files/database.yml.pb01',
-    require => Exec [ "clone-publify" ], }
-    exec { "bunle-install":
-    cwd => "/opt/publify/" ,
-    command => "/usr/local/bin/bundle install" ,
-    onlyif => "/usr/bin/test -f /opt/publify/config/database.yml", 
-    require => Package ['rake', 'rails', 'eventmachine', 'mysql2', 'nokogiri'] }
-    exec { "db-setup":
-    command => "/usr/local/bin/rake db:setup -f /opt/publify/Rakefile",
-    require =>  Exec [ "bunle-install" ], }
-    exec { "db-migrate":
-    command => "/usr/local/bin/rake db:migrate -f /opt/publify/Rakefile" ,
-    require => Exec [ "db-setup" ], }
-    exec { "db-seed":
-    command => "/usr/local/bin/rake db:seed -f /opt/publify/Rakefile",
-    require => Exec [ "db-migrate" ], }
-    exec { "assets-precompile":
-    command => "/usr/local/bin/rake assets:precompile -f /opt/publify/Rakefile",
-    require => Exec [ "db-seed" ], }
-    exec { "start-rails":
-    cwd => "/opt/publify/" ,
-    command => "/bin/nohup /usr/local/bin/rails server -b 0.0.0.0 -d",
-    require => Exec [ "assets-precompile" ], }
+    ensure            => installed, }
+
+#Ruby packages
+    class { 'ruby':
+    gems_version      => 'latest',
+    require           => Package [$rubypre]
+    }
+    class { 'ruby::dev':
+    bundler_provider  => 'gem'
+    }
+
+    package { [ 'rails', 'eventmachine', 'mysql2', 'nokogiri' ]:
+    ensure            => 'installed',
+    provider          => 'gem', 
+    require           => Class ['ruby::dev']
+    }
+
+#Set up parent folder for publify to ensure no errors on deploy
+    file { [ '/var/www' ]:
+    ensure            => 'directory',
+    before            => Exec [ 'clone-publify' ],
+    }
+
+#Clone of Publify repo for installation
+    exec { 'clone-publify':
+    command           => '/usr/bin/git clone https://github.com/publify/publify.git /var/www/publify',
+    require           => Package ['git'], 
+    }
+
+#Copy the database configuration file from puppet files repo
+    file { '/var/www/publify/config/database.yml':
+    source  => 'puppet:///files/database.yml.pb01',
+    require  => Exec [ 'clone-publify' ] 
+    }
+
+#Install Ruby bundle
+    ruby::bundle { bundle:
+    cwd               => '/var/www/publify' ,
+    timeout           => 600,
+    require           => [ Exec [ 'clone-publify' ], File ['/var/www/publify/config/database.yml'] ]
+    }
+
+#Setting up and seeding Database 
+    ruby::rake { 
+        'db-setup':
+        task          => 'db:setup',
+        cwd           => '/var/www/publify',
+        rails_env     => 'production',
+        require       => Class ['ruby'];
+        'db-migrate':
+        task          => 'db:migrate',
+        cwd           => '/var/www/publify',
+        rails_env     => 'production',
+        require       => Ruby::Rake['db-setup'];
+        'db-seed':
+        task          => 'db:seed',
+        cwd           => '/var/www/publify',
+        rails_env     => 'production',
+        require       => Ruby::Rake['db-migrate'];
+        'assets-precompile':
+        task          => 'assets:precompile',
+        rails_env     => 'production',
+        cwd           => '/var/www/publify',
+        require       => Ruby::Rake['db-seed'];
+    }
+
+#Copy the service configuration file from puppet files repo
+    file { '/etc/systemd/system/publify.service':
+    source  => 'puppet:///files/publify.service.pb01',
+    require => Ruby::Rake['assets-precompile'],
+    }
+    service { 'publify.service': 
+    ensure  => 'running',
+    require => File ['/etc/systemd/system/publify.service'] 
+    }
+    
+#    exec { 'start-rails':
+#    cwd => '/var/www/publify' ,
+#    command => '/bin/nohup /usr/local/bin/rails server -b 0.0.0.0 -d',
+#    require => Exec [ 'assets-precompile' ], }
 }
-#Node hosting the HAProxy Server
+#################################
+#Node hosting the HAProxy Server#
+#################################
 node 'ha01.local' {
-    service { "firewalld.service": ensure => "stopped", }
+
+#Stop firewall services
+    service { 'firewalld.service': ensure => 'stopped', }
+
+#Install and configure HAProxy
     class { 'haproxy':
         global_options => {
             'chroot'  => '/var/lib/haproxy',
@@ -111,6 +189,7 @@ node 'ha01.local' {
             'maxconn' => '8000',
         },
     }
+    #Cofigure listen for Statistics
     haproxy::listen { 'stats':
       mode             => 'http',
         ipaddress        => '0.0.0.0',
@@ -124,7 +203,7 @@ node 'ha01.local' {
             ],
         }
     }
-
+    #Configure listen for Publify service
     haproxy::listen { 'publify':
       mode             => 'http',
         collect_exported => false,
@@ -137,6 +216,7 @@ node 'ha01.local' {
             ],
         },
     }
+    #Configure BalanceMember (add backend nodes here)
     haproxy::balancermember { 'pb01':
       listening_service => 'publify',
       server_names      => 'pb01.local',
