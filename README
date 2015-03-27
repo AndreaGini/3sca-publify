@@ -19,6 +19,3 @@ after the complete installation access the frontend from:
 http://localhost:3000 --> Publify served by HAProxy
 http://localhost:8080 --> HAProxy statistics page
 
-There is a puppet module for rubygem https://github.com/puppetlabs/puppetlabs-ruby , but I had a limited time to work on this and I didn't use this module, so the pupped manifest is not fancy and optimized .
-
-Next release will have the puppetlabs-ruby module instead of the exec in the manifest and be more clean.    
