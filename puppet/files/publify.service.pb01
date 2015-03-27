@@ -5,7 +5,7 @@ After=network.target
 [Service]
 Type=simple
 User=root
-ExecStart=/bin/ruby -C /var/www/publify bin/rails server -e production -b 0.0.0.0
+ExecStart=/bin/ruby -C /var/www/publify bin/rails server -e development -b 0.0.0.0
 Restart=on-abort
 TimeoutSec=300
 

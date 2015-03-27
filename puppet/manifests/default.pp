@@ -116,21 +116,21 @@ node 'pb01.local' {
         'db-setup':
         task          => 'db:setup',
         cwd           => '/var/www/publify',
-        rails_env     => 'production',
+        rails_env     => 'development',
         require       => Class ['ruby'];
         'db-migrate':
         task          => 'db:migrate',
         cwd           => '/var/www/publify',
-        rails_env     => 'production',
+        rails_env     => 'development',
         require       => Ruby::Rake['db-setup'];
         'db-seed':
         task          => 'db:seed',
         cwd           => '/var/www/publify',
-        rails_env     => 'production',
+        rails_env     => 'development',
         require       => Ruby::Rake['db-migrate'];
         'assets-precompile':
         task          => 'assets:precompile',
-        rails_env     => 'production',
+        rails_env     => 'development',
         cwd           => '/var/www/publify',
         require       => Ruby::Rake['db-seed'];
     }
@@ -175,12 +175,12 @@ node 'ha01.local' {
             ],
             'retries' => '3',
             'timeout' => [
-            'http-request 2s',
-            'queue 1s',
-            'connect 1s',
-            'client 3s',
-            'server 2s',
-            'check 1s',
+            'http-request 20s',
+            'queue 10s',
+            'connect 10s',
+            'client 30s',
+            'server 20s',
+            'check 10s',
             ],
             'maxconn' => '8000',
         },
