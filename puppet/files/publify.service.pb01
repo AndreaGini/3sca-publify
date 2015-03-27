@@ -4,10 +4,10 @@ After=network.target
 
 [Service]
 Type=simple
-User=publify
-ExecStart=/var/www/publify/bin/rails server -b 0.0.0.0 -d -e production
+User=root
+ExecStart=/bin/ruby -C /var/www/publify bin/rails server -e production -b 0.0.0.0
 Restart=on-abort
-
+TimeoutSec=300
 
 [Install]
 WantedBy=multi-user.target
