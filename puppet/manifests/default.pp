@@ -145,10 +145,6 @@ node 'pb01.local' {
     require => File ['/etc/systemd/system/publify.service'] 
     }
     
-#    exec { 'start-rails':
-#    cwd => '/var/www/publify' ,
-#    command => '/bin/nohup /usr/local/bin/rails server -b 0.0.0.0 -d',
-#    require => Exec [ 'assets-precompile' ], }
 }
 #################################
 #Node hosting the HAProxy Server#
